@@ -172,6 +172,10 @@ class LinkySensor(Entity):
             ) * 100
         _LOGGER.debug("Computed values: %s", str(self._attributes))
 
+        self._attributes["current_month"] = self._lk.monthly[0][CONSUMPTION]
+        self._attributes["last_month"] = self._lk.monthly[1][CONSUMPTION]
+        self._attributes["current_year"] = self._lk.yearly[0][CONSUMPTION]
+        self._attributes["last_year"] = self._lk.yearly[1][CONSUMPTION]
 
 def _hour_to_min(hour):
     return sum(map(lambda x, y: int(x) * y, hour.split(":"), [60, 1]))
