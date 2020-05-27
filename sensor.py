@@ -174,7 +174,7 @@ class LinkySensor(Entity):
             self._attributes["monthly_evolution"] = 0
         else:
             _LOGGER.debug(
-                "montly consumtion:%s / last year monthly consumtion:%s",
+                "monthly consumption:%s / last year monthly consumption:%s",
                 self._lk.monthly[0][CONSUMPTION],
                 self._lk.compare_month,
             )
