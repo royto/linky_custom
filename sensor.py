@@ -126,39 +126,50 @@ class LinkySensor(Entity):
             return
 
         self._state = self._lk.daily[1][CONSUMPTION]
-        self._attributes["halfhourly"] = [d[CONSUMPTION] for d in self._lk.halfhourly]
         self._attributes["daily"] = [d[CONSUMPTION] for d in self._lk.daily]
-        self._attributes["peak_hours"] = (
-            sum(
-                [
-                    d[CONSUMPTION]
-                    if any([_between(h[0], h[1], d[TIME]) for h in self._peak_hours])
-                    else 0
-                    for d in self._lk.halfhourly
-                ]
+        
+        if len(self._lk.halfhourly) > 0:
+            self._attributes["halfhourly"] = [d[CONSUMPTION] for d in self._lk.halfhourly]
+            self._attributes["peak_hours"] = (
+                sum(
+                    [
+                        d[CONSUMPTION]
+                        if any([_between(h[0], h[1], d[TIME]) for h in self._peak_hours])
+                        else 0
+                        for d in self._lk.halfhourly
+                    ]
+                )
+                / 2
             )
-            / 2
-        )
-        # From kW for 30 minutes to kWh
-        self._attributes["offpeak_hours"] = (
-            sum(
-                [
-                    0
-                    if any([_between(h[0], h[1], d[TIME]) for h in self._peak_hours])
-                    else d[CONSUMPTION]
-                    for d in self._lk.halfhourly
-                ]
+            # From kW for 30 minutes to kWh
+            self._attributes["offpeak_hours"] = (
+                sum(
+                    [
+                        0
+                        if any([_between(h[0], h[1], d[TIME]) for h in self._peak_hours])
+                        else d[CONSUMPTION]
+                        for d in self._lk.halfhourly
+                    ]
+                )
+                / 2
             )
-            / 2
-        )
-        # From kW for 30 minutes to kWh
-        self._attributes["peak_offpeak_percent"] = (
-            self._attributes["peak_hours"] * 100
-        ) / (self._attributes["peak_hours"] + self._attributes["offpeak_hours"])
-        self._attributes["daily_cost"] = (
-            self._peak_hours_cost * self._attributes["peak_hours"]
-            + self._offpeak_hours_cost * self._attributes["offpeak_hours"]
-        )
+            # From kW for 30 minutes to kWh
+            self._attributes["peak_offpeak_percent"] = (
+                self._attributes["peak_hours"] * 100
+            ) / (self._attributes["peak_hours"] + self._attributes["offpeak_hours"])
+
+            self._attributes["daily_cost"] = (
+                self._peak_hours_cost * self._attributes["peak_hours"]
+                + self._offpeak_hours_cost * self._attributes["offpeak_hours"]
+            )
+        else: 
+            _LOGGER.warning('Hourly data not available. Please check hourly activation on enedis.fr')
+            self._attributes["halfhourly"] = []
+            self._attributes["peak_hours"] = 0
+            self._attributes["offpeak_hours"] = 0
+            self._attributes["peak_offpeak_percent"] = 0
+            self._attributes["daily_cost"] = 0
+
         if self._lk.compare_month == 0:
             self._attributes["monthly_evolution"] = 0
         else:
