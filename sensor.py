@@ -15,16 +15,19 @@ from homeassistant.const import (
     CONF_TIMEOUT,
     STATE_UNAVAILABLE,
     CONF_NAME,
+    ENERGY_KILO_WATT_HOUR,
+    ATTR_ATTRIBUTION,
 )
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import Throttle
+from pylinky.client import DAILY, MONTHLY, YEARLY
 import homeassistant.helpers.config_validation as cv
 
 
 KILOWATT_HOUR = "kWh"
-
 DEFAULT_NAME = "Linky"
+ATTRIBUTION = "Data provided by Enedis"
 
 ICON_ENERGY = "mdi:flash"
 
@@ -34,6 +37,9 @@ OFFPEAK_HOURS_COST = "offpeak_hours_cost"
 
 CONSUMPTION = "conso"
 TIME = "time"
+
+INDEX_CURRENT = -1
+INDEX_LAST = -2
 
 REQUIREMENTS = ["pylinky==0.3.3"]
 _LOGGER = logging.getLogger(__name__)
@@ -69,8 +75,14 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     linky_data.update()
 
     add_entities(
-        [LinkySensor(name, linky_data, peak_hours, peak_hours_cost, offpeak_hours_cost)]
-    )
+        [
+            LinkySensor(name, linky_data, peak_hours, peak_hours_cost, offpeak_hours_cost),
+            SimpleLinkySensor("Linky current month", linky_data, MONTHLY, INDEX_CURRENT),
+            SimpleLinkySensor("Linky last month", linky_data, MONTHLY, INDEX_LAST),
+            SimpleLinkySensor("Linky current year", linky_data, YEARLY, INDEX_CURRENT),
+            SimpleLinkySensor("Linky last year", linky_data, YEARLY, INDEX_LAST),
+        ]
+    , True)
     return True
 
 
@@ -185,11 +197,6 @@ class LinkySensor(Entity):
             ) * 100
         _LOGGER.debug("Computed values: %s", str(self._attributes))
 
-        self._attributes["current_month"] = self._lk.monthly[0][CONSUMPTION]
-        self._attributes["last_month"] = self._lk.monthly[1][CONSUMPTION]
-        self._attributes["current_year"] = self._lk.yearly[0][CONSUMPTION]
-        self._attributes["last_year"] = self._lk.yearly[1][CONSUMPTION]
-
 def _hour_to_min(hour):
     return sum(map(lambda x, y: int(x) * y, hour.split(":"), [60, 1]))
 
@@ -204,6 +211,59 @@ def _between(start, end, hour):
         else min_start >= min_hour >= min_end
     )
 
+class SimpleLinkySensor(Entity):
+    """Representation of a sensor entity for Linky."""
+
+    def __init__(self, name, linkyData, scale, when):
+        """Initialize the sensor."""
+        self._name = name
+        self.__account = linkyData
+        self._username = linkyData.username
+        self.__time = None
+        self.__consumption = None
+        self._scale = scale
+        self._when = when
+
+    @property
+    def name(self):
+        """Return the name of the sensor."""
+        return self._name
+
+    @property
+    def state(self):
+        """Return the state of the sensor."""
+        return self.__consumption
+
+    @property
+    def unit_of_measurement(self):
+        """Return the unit of measurement."""
+        return ENERGY_KILO_WATT_HOUR
+
+    @property
+    def icon(self):
+        """Return the icon of the sensor."""
+        return ICON_ENERGY
+
+    @property
+    def device_state_attributes(self):
+        """Return the state attributes of the sensor."""
+        return {
+            ATTR_ATTRIBUTION: ATTRIBUTION,
+            'time': self.__time,
+            CONF_USERNAME: self._username
+        }
+
+    def update(self):
+        """Retreive the new data for the sensor."""
+        data = self.__account.data[self._scale][self._when]
+        self.__consumption = data[CONSUMPTION]
+        self.__time = data[TIME]
+
+        if self._scale is not YEARLY:
+            year_index = INDEX_CURRENT
+            if self.__time.endswith("Dec"):
+                year_index = INDEX_LAST
+            self.__time += ' ' + self.__account.data[YEARLY][year_index][TIME]
 
 class LinkyData:
     """The class for handling the data retrieval."""
@@ -221,6 +281,11 @@ class LinkyData:
         self.yearly = []
         self.compare_month = []
         self.success = False
+    
+    @property
+    def username(self):
+        """Return the username."""
+        return self._username
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     def _fetch_data(self):
