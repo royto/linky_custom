@@ -26,6 +26,8 @@ KILOWATT_HOUR = "kWh"
 
 DEFAULT_NAME = "Linky"
 
+ICON_ENERGY = "mdi:flash"
+
 PEAK_HOURS = "peak_hours"
 PEAK_HOURS_COST = "peak_hours_cost"
 OFFPEAK_HOURS_COST = "offpeak_hours_cost"
@@ -84,7 +86,7 @@ class LinkySensor(Entity):
         self._peak_hours_cost = peak_hours_cost
         self._offpeak_hours_cost = offpeak_hours_cost
         self._unit = KILOWATT_HOUR
-        self._icon = "mdi:flash"
+        self._icon = ICON_ENERGY
         self._lk = linky_data
         self._state = None
         self._attributes = {}
