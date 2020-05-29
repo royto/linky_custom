@@ -255,6 +255,10 @@ class SimpleLinkySensor(Entity):
 
     def update(self):
         """Retreive the new data for the sensor."""
+        # Verify data exist !
+        if self.__account.data[self._scale] < abs(self._when):
+            return
+        
         data = self.__account.data[self._scale][self._when]
         self.__consumption = data[CONSUMPTION]
         self.__time = data[TIME]
