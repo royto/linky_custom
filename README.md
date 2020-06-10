@@ -8,6 +8,8 @@
 
 The 'linky_custom' component is a Home Assistant custom sensors which calculate the cost of your daily consumption based on data provided by Enedis.
 
+This component is inspired by [the work](https://github.com/home-assistant/core/pull/20535) of @Grea04.
+
 You can use my [custom card](https://github.com/royto/linky-card) to display linky information
 
 ## Installation
