@@ -217,10 +217,10 @@ class SimpleLinkySensor(Entity):
     def __init__(self, name, linkyData, scale, when):
         """Initialize the sensor."""
         self._name = name
-        self.__account = linkyData
+        self._account = linkyData
         self._username = linkyData.username
-        self.__time = None
-        self.__consumption = None
+        self._time = None
+        self._consumption = None
         self._scale = scale
         self._when = when
 
@@ -232,7 +232,7 @@ class SimpleLinkySensor(Entity):
     @property
     def state(self):
         """Return the state of the sensor."""
-        return self.__consumption
+        return self._consumption
 
     @property
     def unit_of_measurement(self):
@@ -249,25 +249,25 @@ class SimpleLinkySensor(Entity):
         """Return the state attributes of the sensor."""
         return {
             ATTR_ATTRIBUTION: ATTRIBUTION,
-            'time': self.__time,
+            'time': self._time,
             CONF_USERNAME: self._username
         }
 
     def update(self):
         """Retreive the new data for the sensor."""
         # Verify data exist !
-        if self.__account.data[self._scale] < abs(self._when):
+        if self._account.data is None:
             return
         
-        data = self.__account.data[self._scale][self._when]
-        self.__consumption = data[CONSUMPTION]
-        self.__time = data[TIME]
+        data = self._account.data[self._scale][self._when]
+        self._consumption = data[CONSUMPTION]
+        self._time = data[TIME]
 
         if self._scale is not YEARLY:
             year_index = INDEX_CURRENT
-            if self.__time.endswith("Dec"):
+            if self._time.endswith("Dec"):
                 year_index = INDEX_LAST
-            self.__time += ' ' + self.__account.data[YEARLY][year_index][TIME]
+            self._time += ' ' + self._account.data[YEARLY][year_index][TIME]
 
 class LinkyData:
     """The class for handling the data retrieval."""
@@ -294,7 +294,7 @@ class LinkyData:
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     def _fetch_data(self):
         """Fetch latest data from Linky."""
-        from pylinky.client import PyLinkyError
+        from pylinky.exceptions import PyLinkyAccessException, PyLinkyEnedisException, PyLinkyMaintenanceException, PyLinkyWrongLoginException
         from pylinky import LinkyClient
         from datetime import date
         from dateutil.relativedelta import relativedelta
@@ -325,9 +325,21 @@ class LinkyData:
                 "Same month last year (from 1st to same day): %s",
                 str(self.compare_month),
             )
-        except PyLinkyError as exp:
-            reason = "(maybe due to night maintenance downtime schedule):"
-            _LOGGER.warning("Unable to fetch Linky data %s %s", reason, exp)
+        except PyLinkyAccessException as accessExp:
+            reason = "(verify your login password):"
+            _LOGGER.warning("Unable to fetch Linky data %s %s", reason, accessExp)
+            return False
+        except PyLinkyEnedisException as enedisExp:
+            reason = "(unknown exception):"
+            _LOGGER.warning("Unable to fetch Linky data %s %s", reason, enedisExp)
+            return False
+        except PyLinkyMaintenanceException as maintenanceExp:
+            reason = "(verify your login password):"
+            _LOGGER.warning("Unable to fetch Linky data %s %s", reason, maintenanceExp)
+            return False
+        except PyLinkyWrongLoginException as accessExp:
+            reason = "(your login is wrong ...):"
+            _LOGGER.warning("Unable to fetch Linky data %s %s", reason, accessExp)
             return False
         return True
 
